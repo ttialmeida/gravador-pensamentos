@@ -351,7 +351,7 @@
 <script>
 // ── Versão do app ──
 // Ao publicar uma atualização, incremente este número E o CACHE em sw.js.
-const APP_VERSION = '1.1.2';
+const APP_VERSION = '1.2.0';
 document.getElementById('app-version').textContent = 'v' + APP_VERSION;
 
 // ── DOM refs ──
@@ -429,9 +429,10 @@ document.getElementById('btn-settings-save').addEventListener('click', () => {
 });
 
 // ── Google Drive / OAuth ──
-let tokenClient  = null;
-let accessToken  = null;
-let tokenExpires = 0;
+let tokenClient   = null;
+let accessToken   = null;
+let tokenExpires  = 0;
+let silentAttempt = false; // true quando tentamos reconectar sem interação
 
 function initTokenClient() {
   if (!window.google || !config.googleId) return;
@@ -440,20 +441,39 @@ function initTokenClient() {
     scope: 'https://www.googleapis.com/auth/drive.file',
     callback: onTokenResponse,
   });
-  // Auto-connect if already had session
-  if (config.driveFileId) setDriveStatus('ok', '✓ Conectado (clique para reconectar)');
 }
 
 function onTokenResponse(resp) {
   if (resp.error) {
-    setDriveStatus('err', 'Erro: ' + resp.error);
+    // Falha numa tentativa silenciosa é normal (sessão expirada): apenas
+    // mostramos que é preciso reconectar, sem alarmar com mensagem de erro.
+    if (silentAttempt) {
+      setDriveStatus('', 'Toque para conectar ao Drive');
+    } else {
+      setDriveStatus('err', 'Erro: ' + resp.error);
+    }
+    silentAttempt = false;
     return;
   }
+  silentAttempt = false;
   accessToken  = resp.access_token;
   tokenExpires = Date.now() + (resp.expires_in - 60) * 1000;
   btnGoogleConn.classList.add('connected');
   googleLabel.textContent = '✓ Google conectado';
   setDriveStatus('ok', '✓ Drive pronto para salvar');
+}
+
+// Tenta reconectar sem mostrar nenhuma tela (silencioso). Se o Google ainda
+// reconhecer a sessão e o consentimento prévio, devolve o token na hora.
+function trySilentReconnect() {
+  if (!tokenClient || accessToken) return;
+  silentAttempt = true;
+  setDriveStatus('', 'Reconectando ao Drive...');
+  try {
+    tokenClient.requestAccessToken({ prompt: 'none' });
+  } catch {
+    silentAttempt = false;
+  }
 }
 
 function ensureToken() {
@@ -487,9 +507,13 @@ function setDriveStatus(type, msg) {
   driveStatusEl.className = 'drive-status' + (type ? ' ' + type : '');
 }
 
-// Init after GIS script loads
+// Init after GIS script loads — e tenta reconectar silenciosamente
 window.addEventListener('load', () => {
-  if (config.googleId) initTokenClient();
+  if (config.googleId) {
+    initTokenClient();
+    // pequeno atraso para garantir que a lib do Google terminou de carregar
+    setTimeout(trySilentReconnect, 400);
+  }
 });
 
 // ── Google Drive API ──
@@ -507,9 +531,20 @@ async function saveToDrive(entryMd) {
     } catch { config.driveFileId = ''; }
   }
 
-  const content = existing
-    ? existing + entryMd
-    : `# Meus Pensamentos\n\n` + entryMd;
+  // Novas entradas vão no TOPO: insere logo após o cabeçalho, antes das antigas.
+  const HEADER = '# Meus Pensamentos\n\n';
+  let content;
+  if (existing) {
+    if (existing.startsWith(HEADER)) {
+      const rest = existing.slice(HEADER.length);
+      content = HEADER + entryMd + rest;
+    } else {
+      // arquivo sem o cabeçalho esperado: apenas prepend
+      content = entryMd + existing;
+    }
+  } else {
+    content = HEADER + entryMd;
+  }
 
   if (config.driveFileId) {
     // Update existing file
@@ -737,7 +772,7 @@ function renderEntries() {
 // ── Export ──
 btnExport.addEventListener('click', () => {
   if (!entries.length) { showToast('Nada para exportar.', 'error'); return; }
-  const md = `# Pensamentos — ${today()}\n\n` + entries.map(formatEntry).join('');
+  const md = `# Pensamentos — ${today()}\n\n` + [...entries].reverse().map(formatEntry).join('');
   const blob = new Blob([md], { type: 'text/markdown' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
