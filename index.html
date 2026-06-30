@@ -351,7 +351,7 @@
 <script>
 // ── Versão do app ──
 // Ao publicar uma atualização, incremente este número E o CACHE em sw.js.
-const APP_VERSION = '1.1.1';
+const APP_VERSION = '1.1.2';
 document.getElementById('app-version').textContent = 'v' + APP_VERSION;
 
 // ── DOM refs ──
@@ -547,23 +547,26 @@ if (!SR) {
 function initRecognition() {
   recognition = new SR();
   recognition.lang = 'pt-BR';
+  // continuous = false é essencial no Android: no modo contínuo, o Chrome do
+  // Android emite snapshots CUMULATIVOS já marcados como finais
+  // ("vamos", "vamos testar", "vamos testar o"...), o que duplica todo o texto.
+  // Sem o modo contínuo, cada frase gera UM resultado final limpo; a gravação
+  // segue ininterrupta porque reiniciamos o reconhecimento no onend.
   recognition.interimResults = true;
-  recognition.continuous = true;
+  recognition.continuous = false;
   recognition.maxAlternatives = 1;
   recognition.onresult = (e) => {
-    // O Android envia snapshots CUMULATIVOS do texto provisório (interim):
-    // "testando", "testando a", "testando a nova"... Concatená-los duplica tudo.
-    // Por isso: resultados finais somam; o provisório apenas sobrescreve com o
-    // último snapshot. Usamos e.resultIndex para olhar só os resultados novos.
-    let finalChunk = '', interim = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      const res = e.results[i];
-      const t = res[0].transcript;
-      if (res.isFinal) finalChunk += t + ' ';
-      else interim = t;            // sobrescreve — mantém só o snapshot mais recente
+    // Como continuous=false, cada evento traz só a frase atual. Pegamos APENAS
+    // o último resultado (snapshot mais completo da frase) — nunca somamos
+    // snapshots entre si, eliminando a duplicação do Android.
+    const last = e.results[e.results.length - 1];
+    const text = last[0].transcript;
+    if (last.isFinal) {
+      sessionFinal = (sessionFinal + ' ' + text).trim() + ' ';
+      interimTranscript = '';
+    } else {
+      interimTranscript = text;
     }
-    if (finalChunk) sessionFinal += finalChunk;
-    interimTranscript = interim;
     liveBox.textContent = (committedTranscript + sessionFinal + interimTranscript).trim();
   };
   recognition.onerror = (e) => {
