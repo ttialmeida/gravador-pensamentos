@@ -238,6 +238,12 @@
 
   .empty-state { text-align: center; color: #333; font-size: 0.9rem; padding: 40px 0; }
 
+  #app-footer {
+    width: 100%; max-width: 620px; text-align: center;
+    font-size: 0.72rem; color: #333; margin-top: 40px; letter-spacing: 0.03em;
+  }
+  #app-version { color: #5030a0; font-weight: 600; }
+
   /* ── Toast ── */
   #toast {
     position: fixed; bottom: 30px; left: 50%;
@@ -338,9 +344,16 @@
   <div class="empty-state" id="empty-msg">Nenhuma entrada ainda.<br>Grave algo!</div>
 </div>
 
+<div id="app-footer">Gravador de Pensamentos <span id="app-version"></span></div>
+
 <div id="toast"></div>
 
 <script>
+// ── Versão do app ──
+// Ao publicar uma atualização, incremente este número E o CACHE em sw.js.
+const APP_VERSION = '1.1.0';
+document.getElementById('app-version').textContent = 'v' + APP_VERSION;
+
 // ── DOM refs ──
 const btnRecord      = document.getElementById('btn-record');
 const btnSettings    = document.getElementById('btn-settings');

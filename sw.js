@@ -1,4 +1,6 @@
-const CACHE = 'gp-v1';
+// Mantenha esta versão sincronizada com APP_VERSION no index.html.
+// Trocar este valor força o Chrome a baixar a versão nova no celular.
+const CACHE = 'gp-v1.1.0';
 const ASSETS = ['./index.html', './manifest.json'];
 
 self.addEventListener('install', e => {
