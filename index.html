@@ -351,7 +351,7 @@
 <script>
 // ── Versão do app ──
 // Ao publicar uma atualização, incremente este número E o CACHE em sw.js.
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.1.1';
 document.getElementById('app-version').textContent = 'v' + APP_VERSION;
 
 // ── DOM refs ──
@@ -551,16 +551,19 @@ function initRecognition() {
   recognition.continuous = true;
   recognition.maxAlternatives = 1;
   recognition.onresult = (e) => {
-    // Reconstrói a sessão atual do zero a cada evento — evita a duplicação
-    // que ocorre no Android, onde os resultados são reenviados a cada disparo.
-    let sFinal = '', sInterim = '';
-    for (let i = 0; i < e.results.length; i++) {
-      const t = e.results[i][0].transcript;
-      if (e.results[i].isFinal) sFinal += t + ' ';
-      else sInterim += t;
+    // O Android envia snapshots CUMULATIVOS do texto provisório (interim):
+    // "testando", "testando a", "testando a nova"... Concatená-los duplica tudo.
+    // Por isso: resultados finais somam; o provisório apenas sobrescreve com o
+    // último snapshot. Usamos e.resultIndex para olhar só os resultados novos.
+    let finalChunk = '', interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const res = e.results[i];
+      const t = res[0].transcript;
+      if (res.isFinal) finalChunk += t + ' ';
+      else interim = t;            // sobrescreve — mantém só o snapshot mais recente
     }
-    sessionFinal = sFinal;
-    interimTranscript = sInterim;
+    if (finalChunk) sessionFinal += finalChunk;
+    interimTranscript = interim;
     liveBox.textContent = (committedTranscript + sessionFinal + interimTranscript).trim();
   };
   recognition.onerror = (e) => {
