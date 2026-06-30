@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head><title>Gerar ícones PWA</title></head>
+<body>
+<p>Clique nos botões para baixar os ícones e coloque-os na mesma pasta que o index.html.</p>
+<button onclick="generate(192)">Baixar icon-192.png</button>
+<button onclick="generate(512)">Baixar icon-512.png</button>
+<canvas id="c" style="display:none"></canvas>
+<script>
+function generate(size) {
+  const canvas = document.getElementById('c');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+
+  // Background
+  ctx.fillStyle = '#1a0a40';
+  roundRect(ctx, 0, 0, size, size, size * 0.22);
+  ctx.fill();
+
+  // Mic icon
+  const s = size / 192;
+  ctx.fillStyle = '#c0a0ff';
+  ctx.beginPath();
+  // Body of mic
+  const cx = size / 2, cy = size / 2;
+  const mw = 28 * s, mh = 44 * s, mr = 14 * s;
+  roundRect(ctx, cx - mw/2, cy - mh/2 - 8*s, mw, mh, mr);
+  ctx.fill();
+
+  // Stand arc
+  ctx.strokeStyle = '#c0a0ff';
+  ctx.lineWidth = 6 * s;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(cx, cy + 10*s, 36*s, Math.PI, 0, true);
+  ctx.stroke();
+
+  // Stem
+  ctx.beginPath();
+  ctx.moveTo(cx, cy + 46*s);
+  ctx.lineTo(cx, cy + 60*s);
+  ctx.stroke();
+
+  // Base line
+  ctx.beginPath();
+  ctx.moveTo(cx - 20*s, cy + 60*s);
+  ctx.lineTo(cx + 20*s, cy + 60*s);
+  ctx.stroke();
+
+  const a = document.createElement('a');
+  a.download = `icon-${size}.png`;
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+</script>
+</body>
+</html>

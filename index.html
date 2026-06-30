@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gravador de Pensamentos</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#0f0f13">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pensamentos">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0f0f13;
+    color: #e8e8f0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+  }
+
+  /* ── Header ── */
+  .top-bar {
+    width: 100%; max-width: 620px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 50px;
+  }
+  .top-bar-titles h1 { font-size: 1.4rem; font-weight: 500; color: #a0a0c0; letter-spacing: 0.05em; }
+  .top-bar-titles p  { font-size: 0.8rem; color: #555; margin-top: 4px; }
+
+  #btn-settings {
+    background: none; border: 1px solid #2a2a3a; color: #666;
+    border-radius: 8px; padding: 8px 10px; cursor: pointer; font-size: 1rem;
+    transition: color 0.15s, border-color 0.15s; flex-shrink: 0; margin-top: 2px;
+  }
+  #btn-settings:hover { color: #c0a0ff; border-color: #5030a0; }
+  #btn-settings.configured { color: #7b50e8; border-color: #4a20a0; }
+
+  /* ── Settings panel ── */
+  #settings-panel {
+    display: none; width: 100%; max-width: 620px;
+    background: #13131c; border: 1px solid #2a2a3a; border-radius: 14px;
+    padding: 22px 22px 18px; margin-bottom: 32px;
+  }
+  #settings-panel.open { display: block; }
+
+  .settings-title {
+    font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+  }
+  .settings-title.purple { color: #7b50e8; }
+  .settings-title.green  { color: #40b870; }
+
+  .settings-divider {
+    border: none; border-top: 1px solid #1e1e2e; margin: 18px 0;
+  }
+
+  .field-group { margin-bottom: 14px; }
+  .field-group label { font-size: 0.78rem; color: #888; display: block; margin-bottom: 6px; }
+  .field-group input {
+    width: 100%; background: #0f0f13; border: 1px solid #2a2a3a; border-radius: 8px;
+    color: #d0d0e8; font-size: 0.9rem; padding: 10px 12px; outline: none;
+    transition: border-color 0.15s;
+  }
+  .field-group input:focus { border-color: #5030a0; }
+  .field-group input::placeholder { color: #333; }
+
+  .settings-hint { font-size: 0.75rem; color: #444; line-height: 1.6; margin-bottom: 14px; }
+  .settings-hint a { color: #7b50e8; text-decoration: none; }
+  .settings-hint code { background: #1a1a28; padding: 1px 5px; border-radius: 3px; color: #a080e0; font-size: 0.85em; }
+
+  /* Google Drive connect button */
+  #btn-google-connect {
+    width: 100%; padding: 11px 16px; border-radius: 9px; cursor: pointer;
+    border: 1px solid #2a2a3a; background: #0f0f13; color: #d0d0e8;
+    font-size: 0.9rem; font-weight: 500; display: flex; align-items: center;
+    justify-content: center; gap: 10px; transition: border-color 0.15s, background 0.15s;
+    margin-bottom: 12px;
+  }
+  #btn-google-connect:hover { border-color: #40b870; background: #0a1a0f; }
+  #btn-google-connect.connected { border-color: #40b870; color: #40b870; background: #0a1a0f; cursor: default; }
+  #btn-google-connect .g-icon { font-size: 1.1rem; }
+
+  .drive-status {
+    font-size: 0.78rem; color: #444; text-align: center; margin-bottom: 14px; min-height: 18px;
+  }
+  .drive-status.ok  { color: #40b870; }
+  .drive-status.err { color: #e07070; }
+
+  #btn-fetch-lists {
+    font-size: 0.78rem; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+    border: 1px solid #2a2a3a; background: #0f0f13; color: #7b50e8;
+    transition: color 0.15s, border-color 0.15s; margin-bottom: 10px; display: inline-block;
+  }
+  #btn-fetch-lists:hover { border-color: #5030a0; }
+  #btn-fetch-lists:disabled { opacity: 0.4; cursor: default; }
+
+  #lists-picker { display: none; margin-bottom: 14px; }
+  #lists-picker label { font-size: 0.78rem; color: #888; display: block; margin-bottom: 6px; }
+  #lists-select {
+    width: 100%; background: #0f0f13; border: 1px solid #2a2a3a; border-radius: 8px;
+    color: #d0d0e8; font-size: 0.88rem; padding: 9px 12px; outline: none; cursor: pointer;
+  }
+
+  .settings-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .btn-sm {
+    font-size: 0.82rem; padding: 8px 16px; border-radius: 7px; cursor: pointer;
+    border: 1px solid #2a2a3a; background: #0f0f13; color: #888;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .btn-sm:hover { color: #d0d0e8; border-color: #444; }
+  .btn-sm.primary { background: #2a1060; border-color: #4a20a0; color: #c0a0ff; }
+  .btn-sm.primary:hover { background: #3a1880; }
+
+  /* ── Record button ── */
+  .record-area {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 24px; margin-bottom: 50px;
+  }
+
+  #btn-record {
+    width: 140px; height: 140px; border-radius: 50%; border: none; cursor: pointer;
+    background: radial-gradient(circle at 40% 35%, #3a2060, #1a0a40);
+    box-shadow: 0 0 0 0 rgba(120,60,220,0.4), 0 8px 32px rgba(0,0,0,0.6);
+    transition: transform 0.15s, box-shadow 0.15s;
+    display: flex; align-items: center; justify-content: center;
+    outline: none; user-select: none;
+  }
+  #btn-record:hover { transform: scale(1.05); }
+  #btn-record.recording {
+    background: radial-gradient(circle at 40% 35%, #600a0a, #300000);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 0 14px rgba(220,40,40,.12), 0 0 0 30px rgba(220,40,40,.05), 0 8px 32px rgba(0,0,0,.6); }
+    50%      { box-shadow: 0 0 0 22px rgba(220,40,40,.18), 0 0 0 44px rgba(220,40,40,.07), 0 8px 32px rgba(0,0,0,.6); }
+  }
+  .mic-icon { width: 52px; height: 52px; fill: #c0a0ff; transition: fill 0.2s; pointer-events: none; }
+  #btn-record.recording .mic-icon { fill: #ff7070; }
+
+  .status-label { font-size: 0.85rem; color: #666; height: 20px; transition: color 0.2s; }
+  .status-label.active     { color: #ff7070; }
+  .status-label.processing { color: #80c0ff; }
+
+  /* ── Live transcript ── */
+  #live-box {
+    width: 100%; max-width: 620px; min-height: 60px;
+    background: #16161f; border: 1px solid #2a2a3a; border-radius: 12px;
+    padding: 16px 20px; font-size: 1.05rem; color: #d0d0e8; line-height: 1.6;
+    margin-bottom: 20px; opacity: 0; transition: opacity 0.3s; white-space: pre-wrap;
+  }
+  #live-box.visible { opacity: 1; }
+
+  /* ── Category + Save ── */
+  .meta-row {
+    width: 100%; max-width: 620px; display: flex; gap: 10px;
+    margin-bottom: 40px; opacity: 0; transition: opacity 0.3s;
+  }
+  .meta-row.visible { opacity: 1; }
+
+  select, .action-btn {
+    border-radius: 8px; border: 1px solid #2a2a3a; background: #16161f;
+    color: #d0d0e8; font-size: 0.9rem; padding: 10px 14px; outline: none; cursor: pointer;
+  }
+  select { flex: 1; }
+
+  #btn-save {
+    background: #2a1060; border-color: #4a20a0; font-weight: 600;
+    padding: 10px 22px; transition: background 0.15s; white-space: nowrap;
+  }
+  #btn-save:hover { background: #3a1880; }
+  #btn-save:disabled { opacity: 0.4; cursor: default; }
+
+  /* ── History ── */
+  .history-header {
+    width: 100%; max-width: 620px;
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;
+  }
+  .history-header span { font-size: 0.8rem; color: #555; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+
+  #btn-export {
+    font-size: 0.8rem; background: none; border: 1px solid #2a2a3a; color: #888;
+    border-radius: 6px; padding: 6px 12px; cursor: pointer; transition: color 0.15s, border-color 0.15s;
+  }
+  #btn-export:hover { color: #c0a0ff; border-color: #5030a0; }
+
+  #entries-list { width: 100%; max-width: 620px; display: flex; flex-direction: column; gap: 12px; }
+
+  .entry-card {
+    background: #13131c; border: 1px solid #1e1e2e; border-radius: 12px;
+    padding: 16px 18px; position: relative;
+    animation: slideIn 0.25s ease;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .entry-meta { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+
+  .entry-tag {
+    font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 3px 8px; border-radius: 4px;
+  }
+  .tag-pensamento { background: #1a1040; color: #a080ff; }
+  .tag-ideia       { background: #0a2010; color: #60d080; }
+  .tag-tarefa      { background: #201000; color: #f0a030; }
+  .tag-nota        { background: #001025; color: #4090e0; }
+
+  .entry-time { font-size: 0.72rem; color: #444; }
+
+  .badge {
+    font-size: 0.68rem; padding: 2px 7px; border-radius: 4px;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .badge-drive   { background: #0a1a30; color: #4090e0; border: 1px solid #1a3060; }
+  .badge-saving  { background: #0a1020; color: #888;    border: 1px solid #222; animation: blink 1s infinite; }
+  .badge-error   { background: #1a0808; color: #e05050; border: 1px solid #402020; }
+  .badge-clickup { background: #0a1a30; color: #4090e0; border: 1px solid #1a3060; text-decoration: none; }
+  .badge-cu-err  { background: #1a0808; color: #e05050; border: 1px solid #402020; }
+  .badge-cu-send { background: #0a1020; color: #888;    border: 1px solid #222; animation: blink 1s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .entry-text { font-size: 0.95rem; color: #c8c8e0; line-height: 1.6; }
+
+  .entry-del {
+    position: absolute; top: 10px; right: 14px;
+    background: none; border: none; color: #333; font-size: 1.1rem;
+    cursor: pointer; line-height: 1; transition: color 0.15s;
+  }
+  .entry-del:hover { color: #ff5050; }
+
+  .empty-state { text-align: center; color: #333; font-size: 0.9rem; padding: 40px 0; }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed; bottom: 30px; left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: #2a1060; color: #d0b0ff;
+    padding: 12px 24px; border-radius: 30px; font-size: 0.85rem;
+    border: 1px solid #4a20a0; transition: transform 0.3s ease;
+    pointer-events: none; white-space: nowrap; z-index: 100;
+  }
+  #toast.show    { transform: translateX(-50%) translateY(0); }
+  #toast.success { background: #0a2010; color: #60d080; border-color: #1a5030; }
+  #toast.error   { background: #200a0a; color: #e07070; border-color: #502020; }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="top-bar-titles">
+    <h1>Gravador de Pensamentos</h1>
+    <p>Aperte o botão, fale, solte — seu pensamento fica salvo.</p>
+  </div>
+  <button id="btn-settings" title="Configurações">⚙</button>
+</div>
+
+<!-- Settings Panel -->
+<div id="settings-panel">
+
+  <!-- Google Drive -->
+  <div class="settings-title green">☁ Google Drive</div>
+  <p class="settings-hint">
+    Cole seu <strong>Client ID</strong> do Google Cloud abaixo e conecte sua conta.<br>
+    As entradas serão salvas em <code>pensamentos.md</code> no seu Drive.
+  </p>
+  <div class="field-group">
+    <label>Google Client ID</label>
+    <input type="text" id="google-client-id" placeholder="xxxxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com">
+  </div>
+  <button id="btn-google-connect">
+    <span class="g-icon">G</span> <span id="google-connect-label">Conectar com Google</span>
+  </button>
+  <div class="drive-status" id="drive-status"></div>
+
+  <hr class="settings-divider">
+
+  <!-- ClickUp -->
+  <div class="settings-title purple">⚡ ClickUp (tarefas)</div>
+  <p class="settings-hint">
+    Tarefas (✅) serão enviadas ao ClickUp automaticamente.<br>
+    Token em <a href="https://app.clickup.com/settings/apps" target="_blank">app.clickup.com → Settings → Apps</a>.
+  </p>
+  <div class="field-group">
+    <label>API Token pessoal</label>
+    <input type="password" id="cu-token" placeholder="pk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+  </div>
+  <button id="btn-fetch-lists">🔍 Buscar minhas listas</button>
+  <div id="lists-picker">
+    <label>Selecione a lista de destino</label>
+    <select id="lists-select"><option value="">Carregando...</option></select>
+  </div>
+  <div class="field-group">
+    <label>List ID <span style="color:#555;font-weight:400">(preenchido ao buscar)</span></label>
+    <input type="text" id="cu-list" placeholder="901xxxxxxxxx">
+  </div>
+
+  <div class="settings-actions">
+    <button class="btn-sm" id="btn-settings-cancel">Cancelar</button>
+    <button class="btn-sm primary" id="btn-settings-save">Salvar configuração</button>
+  </div>
+</div>
+
+<!-- Record Button -->
+<div class="record-area">
+  <button id="btn-record" title="Clique para iniciar / parar gravação">
+    <svg class="mic-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 1a4 4 0 0 1 4 4v7a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm6.5 10a1 1 0 0 1 1 1 7.5 7.5 0 0 1-15 0 1 1 0 1 1 2 0 5.5 5.5 0 0 0 11 0 1 1 0 0 1 1-1zM12 19.5a1 1 0 0 1 1 1V22a1 1 0 1 1-2 0v-1.5a1 1 0 0 1 1-1z"/>
+    </svg>
+  </button>
+  <div class="status-label" id="status">Clique para gravar</div>
+</div>
+
+<div id="live-box"></div>
+
+<div class="meta-row" id="meta-row">
+  <select id="category">
+    <option value="pensamento">💭 Pensamento</option>
+    <option value="ideia">💡 Ideia</option>
+    <option value="tarefa">✅ Tarefa</option>
+    <option value="nota">📝 Nota</option>
+  </select>
+  <button class="action-btn" id="btn-save">Salvar</button>
+</div>
+
+<div class="history-header">
+  <span>Sessão atual</span>
+  <button id="btn-export">⬇ Exportar .md</button>
+</div>
+<div id="entries-list">
+  <div class="empty-state" id="empty-msg">Nenhuma entrada ainda.<br>Grave algo!</div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── DOM refs ──
+const btnRecord      = document.getElementById('btn-record');
+const btnSettings    = document.getElementById('btn-settings');
+const settingsPanel  = document.getElementById('settings-panel');
+const googleClientId = document.getElementById('google-client-id');
+const btnGoogleConn  = document.getElementById('btn-google-connect');
+const googleLabel    = document.getElementById('google-connect-label');
+const driveStatusEl  = document.getElementById('drive-status');
+const cuTokenInput   = document.getElementById('cu-token');
+const cuListInput    = document.getElementById('cu-list');
+const btnFetchLists  = document.getElementById('btn-fetch-lists');
+const listsPicker    = document.getElementById('lists-picker');
+const listsSelect    = document.getElementById('lists-select');
+const statusEl       = document.getElementById('status');
+const liveBox        = document.getElementById('live-box');
+const metaRow        = document.getElementById('meta-row');
+const btnSave        = document.getElementById('btn-save');
+const btnExport      = document.getElementById('btn-export');
+const catSelect      = document.getElementById('category');
+const entriesList    = document.getElementById('entries-list');
+const emptyMsg       = document.getElementById('empty-msg');
+const toast          = document.getElementById('toast');
+
+let recognition = null;
+let isRecording  = false;
+let finalTranscript = '', interimTranscript = '';
+let entries = [];
+
+// ── Config (localStorage) ──
+let config = {};
+function loadConfig() {
+  try { config = JSON.parse(localStorage.getItem('gp_config') || '{}'); } catch {}
+  config.token      = config.token      || '';
+  config.listId     = config.listId     || '';
+  config.googleId   = config.googleId   || '';
+  config.driveFileId = config.driveFileId || '';
+  googleClientId.value = config.googleId;
+  cuTokenInput.value   = config.token;
+  cuListInput.value    = config.listId;
+  updateSettingsBtn();
+}
+function persistConfig() {
+  localStorage.setItem('gp_config', JSON.stringify(config));
+}
+function updateSettingsBtn() {
+  const ok = (config.token && config.listId) || config.googleId;
+  btnSettings.classList.toggle('configured', !!ok);
+}
+loadConfig();
+
+btnSettings.addEventListener('click', () => {
+  settingsPanel.classList.toggle('open');
+  listsPicker.style.display = 'none';
+});
+document.getElementById('btn-settings-cancel').addEventListener('click', () => {
+  settingsPanel.classList.remove('open');
+  listsPicker.style.display = 'none';
+});
+document.getElementById('btn-settings-save').addEventListener('click', () => {
+  config.googleId = googleClientId.value.trim();
+  config.token    = cuTokenInput.value.trim();
+  config.listId   = cuListInput.value.trim();
+  persistConfig();
+  updateSettingsBtn();
+  settingsPanel.classList.remove('open');
+  listsPicker.style.display = 'none';
+  showToast('Configuração salva!', 'success');
+  if (config.googleId && !accessToken) initTokenClient();
+});
+
+// ── Google Drive / OAuth ──
+let tokenClient  = null;
+let accessToken  = null;
+let tokenExpires = 0;
+
+function initTokenClient() {
+  if (!window.google || !config.googleId) return;
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: config.googleId,
+    scope: 'https://www.googleapis.com/auth/drive.file',
+    callback: onTokenResponse,
+  });
+  // Auto-connect if already had session
+  if (config.driveFileId) setDriveStatus('ok', '✓ Conectado (clique para reconectar)');
+}
+
+function onTokenResponse(resp) {
+  if (resp.error) {
+    setDriveStatus('err', 'Erro: ' + resp.error);
+    return;
+  }
+  accessToken  = resp.access_token;
+  tokenExpires = Date.now() + (resp.expires_in - 60) * 1000;
+  btnGoogleConn.classList.add('connected');
+  googleLabel.textContent = '✓ Google conectado';
+  setDriveStatus('ok', '✓ Drive pronto para salvar');
+}
+
+function ensureToken() {
+  return new Promise((resolve, reject) => {
+    if (accessToken && Date.now() < tokenExpires) { resolve(); return; }
+    if (!tokenClient) {
+      reject(new Error('Configure o Client ID do Google primeiro.'));
+      return;
+    }
+    const orig = tokenClient.callback;
+    tokenClient.callback = (resp) => {
+      orig(resp);
+      if (resp.error) reject(new Error(resp.error));
+      else resolve();
+    };
+    tokenClient.requestAccessToken({ prompt: '' });
+  });
+}
+
+btnGoogleConn.addEventListener('click', () => {
+  const id = googleClientId.value.trim();
+  if (!id) { showToast('Cole o Client ID primeiro.', 'error'); return; }
+  config.googleId = id;
+  persistConfig();
+  initTokenClient();
+  tokenClient.requestAccessToken({ prompt: 'consent' });
+});
+
+function setDriveStatus(type, msg) {
+  driveStatusEl.textContent = msg;
+  driveStatusEl.className = 'drive-status' + (type ? ' ' + type : '');
+}
+
+// Init after GIS script loads
+window.addEventListener('load', () => {
+  if (config.googleId) initTokenClient();
+});
+
+// ── Google Drive API ──
+async function saveToDrive(entryMd) {
+  await ensureToken();
+  let existing = '';
+  if (config.driveFileId) {
+    try {
+      const r = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${config.driveFileId}?alt=media`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (r.ok) existing = await r.text();
+      else if (r.status === 404) config.driveFileId = ''; // file deleted, recreate
+    } catch { config.driveFileId = ''; }
+  }
+
+  const content = existing
+    ? existing + entryMd
+    : `# Meus Pensamentos\n\n` + entryMd;
+
+  if (config.driveFileId) {
+    // Update existing file
+    await fetch(
+      `https://www.googleapis.com/upload/drive/v3/files/${config.driveFileId}?uploadType=media`,
+      {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'text/markdown' },
+        body: content,
+      }
+    );
+  } else {
+    // Create new file
+    const meta = { name: 'pensamentos.md', mimeType: 'text/markdown' };
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' }));
+    form.append('file',     new Blob([content],             { type: 'text/markdown' }));
+    const r = await fetch(
+      'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
+      { method: 'POST', headers: { Authorization: `Bearer ${accessToken}` }, body: form }
+    );
+    const data = await r.json();
+    config.driveFileId = data.id;
+    persistConfig();
+  }
+}
+
+// ── Speech Recognition ──
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (!SR) {
+  statusEl.textContent = '⚠ Use Chrome ou Edge para gravar.';
+  btnRecord.disabled = true;
+}
+
+function initRecognition() {
+  recognition = new SR();
+  recognition.lang = 'pt-BR';
+  recognition.interimResults = true;
+  recognition.continuous = true;
+  recognition.maxAlternatives = 1;
+  recognition.onresult = (e) => {
+    interimTranscript = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) finalTranscript += t + ' ';
+      else interimTranscript += t;
+    }
+    liveBox.textContent = finalTranscript + interimTranscript;
+  };
+  recognition.onerror = (e) => {
+    if (e.error === 'no-speech') return;
+    showToast('Erro: ' + e.error, 'error');
+    stopRecording();
+  };
+  recognition.onend = () => { if (isRecording) recognition.start(); };
+}
+
+btnRecord.addEventListener('click', () => {
+  if (isRecording) stopRecording(); else startRecording();
+});
+
+function startRecording() {
+  if (!SR) return;
+  finalTranscript = ''; interimTranscript = '';
+  liveBox.textContent = '';
+  initRecognition();
+  recognition.start();
+  isRecording = true;
+  btnRecord.classList.add('recording');
+  statusEl.textContent = '● Gravando...';
+  statusEl.classList.add('active');
+  liveBox.classList.add('visible');
+  metaRow.classList.remove('visible');
+  btnSave.disabled = true;
+}
+
+function stopRecording() {
+  if (!recognition) return;
+  isRecording = false;
+  recognition.onend = null;
+  recognition.stop();
+  btnRecord.classList.remove('recording');
+  statusEl.textContent = 'Processando...';
+  statusEl.classList.remove('active');
+  statusEl.classList.add('processing');
+  setTimeout(() => {
+    const text = (finalTranscript + interimTranscript).trim();
+    liveBox.textContent = text || '(nada detectado)';
+    statusEl.textContent = 'Clique para gravar';
+    statusEl.classList.remove('processing');
+    if (text) { metaRow.classList.add('visible'); btnSave.disabled = false; }
+  }, 600);
+}
+
+// ── Save ──
+btnSave.addEventListener('click', async () => {
+  const text = liveBox.textContent.trim();
+  if (!text || text === '(nada detectado)') return;
+
+  const cat = catSelect.value;
+  const now = new Date();
+  const entry = { text, cat, time: now, driveStatus: null, clickupUrl: null, clickupStatus: null };
+  entries.push(entry);
+
+  liveBox.textContent = '';
+  liveBox.classList.remove('visible');
+  metaRow.classList.remove('visible');
+  btnSave.disabled = true;
+
+  // Save to Google Drive
+  if (config.googleId) {
+    entry.driveStatus = 'saving';
+    renderEntries();
+    try {
+      await saveToDrive(formatEntry(entry));
+      entry.driveStatus = 'ok';
+    } catch (err) {
+      entry.driveStatus = 'error';
+      entry.driveError  = err.message;
+      showToast('Drive: ' + err.message, 'error');
+    }
+  }
+
+  // Send to ClickUp if tarefa
+  if (cat === 'tarefa' && config.token && config.listId) {
+    entry.clickupStatus = 'sending';
+    renderEntries();
+    sendToClickUp(entry);
+  } else if (cat === 'tarefa' && !(config.token && config.listId)) {
+    showToast('Configure o ClickUp (⚙) para enviar tarefas.', 'error');
+  }
+
+  renderEntries();
+  if (entry.driveStatus === 'ok') showToast('Salvo no Drive!', 'success');
+  else if (!config.googleId) showToast('Salvo na sessão.', '');
+});
+
+// ── ClickUp ──
+async function sendToClickUp(entry) {
+  try {
+    const res = await fetch(`https://api.clickup.com/api/v2/list/${config.listId}/task`, {
+      method: 'POST',
+      headers: { 'Authorization': config.token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: entry.text.length > 120 ? entry.text.slice(0, 117) + '...' : entry.text,
+        description: entry.text,
+        tags: ['gravador-pensamentos'],
+        notify_all: false,
+      }),
+    });
+    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.err || `HTTP ${res.status}`); }
+    const data = await res.json();
+    entry.clickupUrl    = data.url;
+    entry.clickupStatus = 'ok';
+    renderEntries();
+    showToast('Tarefa criada no ClickUp!', 'success');
+  } catch (err) {
+    entry.clickupStatus = 'error';
+    entry.clickupError  = err.message;
+    renderEntries();
+    showToast('ClickUp: ' + err.message, 'error');
+  }
+}
+
+// ── Render ──
+function renderEntries() {
+  emptyMsg.style.display = entries.length ? 'none' : 'block';
+  entriesList.querySelectorAll('.entry-card').forEach(c => c.remove());
+
+  [...entries].reverse().forEach((e, revI) => {
+    const realIdx = entries.length - 1 - revI;
+    const card = document.createElement('div');
+    card.className = 'entry-card';
+
+    const tagLabel = { pensamento:'💭 Pensamento', ideia:'💡 Ideia', tarefa:'✅ Tarefa', nota:'📝 Nota' }[e.cat];
+    const timeStr  = e.time.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+
+    let driveBadge = '';
+    if (e.driveStatus === 'saving') driveBadge = `<span class="badge badge-saving">⏳ Drive...</span>`;
+    else if (e.driveStatus === 'ok') driveBadge = `<span class="badge badge-drive">☁ Drive</span>`;
+    else if (e.driveStatus === 'error') driveBadge = `<span class="badge badge-error" title="${escapeHtml(e.driveError||'')}">⚠ Drive</span>`;
+
+    let cuBadge = '';
+    if (e.clickupStatus === 'sending') cuBadge = `<span class="badge badge-cu-send">⏳ ClickUp...</span>`;
+    else if (e.clickupStatus === 'ok' && e.clickupUrl) cuBadge = `<a class="badge badge-clickup" href="${e.clickupUrl}" target="_blank">🔗 ClickUp</a>`;
+    else if (e.clickupStatus === 'error') cuBadge = `<span class="badge badge-cu-err" title="${escapeHtml(e.clickupError||'')}">⚠ ClickUp</span>`;
+
+    card.innerHTML = `
+      <div class="entry-meta">
+        <span class="entry-tag tag-${e.cat}">${tagLabel}</span>
+        <span class="entry-time">${timeStr}</span>
+        ${driveBadge}${cuBadge}
+      </div>
+      <div class="entry-text">${escapeHtml(e.text)}</div>
+      <button class="entry-del" data-idx="${realIdx}" title="Remover">×</button>
+    `;
+    entriesList.appendChild(card);
+  });
+
+  entriesList.querySelectorAll('.entry-del').forEach(btn => {
+    btn.addEventListener('click', () => {
+      entries.splice(parseInt(btn.dataset.idx), 1);
+      renderEntries();
+    });
+  });
+}
+
+// ── Export ──
+btnExport.addEventListener('click', () => {
+  if (!entries.length) { showToast('Nada para exportar.', 'error'); return; }
+  const md = `# Pensamentos — ${today()}\n\n` + entries.map(formatEntry).join('');
+  const blob = new Blob([md], { type: 'text/markdown' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `pensamentos-${today()}.md`;
+  a.click();
+  showToast('Arquivo baixado!', 'success');
+});
+
+// ── ClickUp fetch lists ──
+btnFetchLists.addEventListener('click', async () => {
+  const token = cuTokenInput.value.trim();
+  if (!token) { showToast('Cole o API Token primeiro.', 'error'); return; }
+  btnFetchLists.disabled = true;
+  btnFetchLists.textContent = '⏳ Buscando...';
+  try {
+    const teamsRes = await fetch('https://api.clickup.com/api/v2/team', { headers: { Authorization: token } });
+    if (!teamsRes.ok) throw new Error('Token inválido.');
+    const { teams } = await teamsRes.json();
+    if (!teams.length) throw new Error('Nenhum workspace.');
+    const allLists = [];
+    for (const team of teams) {
+      const { spaces } = await (await fetch(`https://api.clickup.com/api/v2/team/${team.id}/space?archived=false`, { headers: { Authorization: token } })).json();
+      for (const space of spaces) {
+        const { lists: fl } = await (await fetch(`https://api.clickup.com/api/v2/space/${space.id}/list?archived=false`, { headers: { Authorization: token } })).json();
+        fl.forEach(l => allLists.push({ id: l.id, name: `${team.name} › ${space.name} › ${l.name}` }));
+        const { folders } = await (await fetch(`https://api.clickup.com/api/v2/space/${space.id}/folder?archived=false`, { headers: { Authorization: token } })).json();
+        for (const folder of folders) {
+          const { lists } = await (await fetch(`https://api.clickup.com/api/v2/folder/${folder.id}/list?archived=false`, { headers: { Authorization: token } })).json();
+          lists.forEach(l => allLists.push({ id: l.id, name: `${team.name} › ${space.name} › ${folder.name} › ${l.name}` }));
+        }
+      }
+    }
+    if (!allLists.length) throw new Error('Nenhuma lista encontrada.');
+    listsSelect.innerHTML = allLists.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+    if (cuListInput.value) listsSelect.value = cuListInput.value;
+    else cuListInput.value = allLists[0].id;
+    listsPicker.style.display = 'block';
+    showToast(`${allLists.length} listas encontradas!`, 'success');
+  } catch (err) {
+    showToast('Erro: ' + err.message, 'error');
+  } finally {
+    btnFetchLists.disabled = false;
+    btnFetchLists.textContent = '🔍 Buscar minhas listas';
+  }
+});
+listsSelect.addEventListener('change', () => { cuListInput.value = listsSelect.value; });
+
+// ── PWA Service Worker ──
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+
+// ── Helpers ──
+function formatEntry(e) {
+  const emoji = { pensamento:'💭', ideia:'💡', tarefa:'✅', nota:'📝' }[e.cat];
+  const dt = e.time.toLocaleString('pt-BR');
+  const cuLine = e.clickupUrl ? `\n> 🔗 ClickUp: ${e.clickupUrl}` : '';
+  return `## ${emoji} ${capitalize(e.cat)} — ${dt}\n\n${e.text}${cuLine}\n\n---\n\n`;
+}
+function today() { return new Date().toISOString().slice(0,10); }
+function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+function escapeHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+let toastTimer;
+function showToast(msg, type = '') {
+  toast.textContent = msg;
+  toast.className = 'show' + (type ? ' ' + type : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.className = '', 2800);
+}
+</script>
+</body>
+</html>
