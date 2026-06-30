@@ -366,7 +366,11 @@ const toast          = document.getElementById('toast');
 
 let recognition = null;
 let isRecording  = false;
-let finalTranscript = '', interimTranscript = '';
+// committedTranscript: texto já fixado de sessões anteriores de reconhecimento
+// (no Android o reconhecimento reinicia várias vezes durante uma única gravação)
+let committedTranscript = '';
+let sessionFinal = '';      // parte final da sessão atual (entre reinícios)
+let interimTranscript = ''; // parte provisória, ainda sendo falada
 let entries = [];
 
 // ── Config (localStorage) ──
@@ -534,20 +538,31 @@ function initRecognition() {
   recognition.continuous = true;
   recognition.maxAlternatives = 1;
   recognition.onresult = (e) => {
-    interimTranscript = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) {
+    // Reconstrói a sessão atual do zero a cada evento — evita a duplicação
+    // que ocorre no Android, onde os resultados são reenviados a cada disparo.
+    let sFinal = '', sInterim = '';
+    for (let i = 0; i < e.results.length; i++) {
       const t = e.results[i][0].transcript;
-      if (e.results[i].isFinal) finalTranscript += t + ' ';
-      else interimTranscript += t;
+      if (e.results[i].isFinal) sFinal += t + ' ';
+      else sInterim += t;
     }
-    liveBox.textContent = finalTranscript + interimTranscript;
+    sessionFinal = sFinal;
+    interimTranscript = sInterim;
+    liveBox.textContent = (committedTranscript + sessionFinal + interimTranscript).trim();
   };
   recognition.onerror = (e) => {
     if (e.error === 'no-speech') return;
     showToast('Erro: ' + e.error, 'error');
     stopRecording();
   };
-  recognition.onend = () => { if (isRecording) recognition.start(); };
+  recognition.onend = () => {
+    // Antes de reiniciar, fixa o texto final desta sessão; o results array
+    // recomeça do zero no próximo start(), então não pode ser perdido.
+    committedTranscript += sessionFinal;
+    sessionFinal = '';
+    interimTranscript = '';
+    if (isRecording) recognition.start();
+  };
 }
 
 btnRecord.addEventListener('click', () => {
@@ -556,7 +571,7 @@ btnRecord.addEventListener('click', () => {
 
 function startRecording() {
   if (!SR) return;
-  finalTranscript = ''; interimTranscript = '';
+  committedTranscript = ''; sessionFinal = ''; interimTranscript = '';
   liveBox.textContent = '';
   initRecognition();
   recognition.start();
@@ -579,7 +594,7 @@ function stopRecording() {
   statusEl.classList.remove('active');
   statusEl.classList.add('processing');
   setTimeout(() => {
-    const text = (finalTranscript + interimTranscript).trim();
+    const text = (committedTranscript + sessionFinal + interimTranscript).trim();
     liveBox.textContent = text || '(nada detectado)';
     statusEl.textContent = 'Clique para gravar';
     statusEl.classList.remove('processing');
